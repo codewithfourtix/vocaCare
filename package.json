@@ -1,0 +1,31 @@
+{
+  "name": "vocacare",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/codewithfourtix/vocaCare.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/codewithfourtix/vocaCare/issues"
+  },
+  "homepage": "https://github.com/codewithfourtix/vocaCare#readme",
+  "description": "",
+  "dependencies": {
+    "axios": "^1.10.0",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "form-data": "^4.0.3",
+    "mongoose": "^8.16.0",
+    "twilio": "^5.7.1"
+  },
+  "devDependencies": {
+    "ngrok": "^5.0.0-beta.2"
+  }
+}
