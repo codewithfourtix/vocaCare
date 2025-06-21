@@ -2,6 +2,7 @@ const CallSession = require('../models/callSession.model');
 const moment = require('moment');
 const openaiService = require('./openai.services');
 const Patient = require('../models/patient.model');
+const Doctor = require('../models/doctor.model');
 const elevenlabs = require('./elevanlab.service');
 
 const questions = [
@@ -44,18 +45,43 @@ if (!missingField) {
           appointments: []
       });
   }
+  const appointmentDateObj = (() => {
+      const dateStr = session.data.appointmentDateTime;
+      if (!dateStr) return null;
+      const cleanedDate = dateStr.replace(/(\d+)(st|nd|rd|th)/, '$1');
+      const withoutWeekday = cleanedDate.replace(/^\w+,\s*/, ''); // remove weekday
+      const finalDateStr = `${withoutWeekday} 2025`;
+      const parsedDate = moment(finalDateStr, 'MMMM D [at] h A YYYY').toDate();
+      return parsedDate;
+  })();
+
   patient.appointments.push({
       doctorName: session.data.doctorName,
-      appointmentDateTime: (() => {
-          const dateStr = session.data.appointmentDateTime;
-          if (!dateStr) return null;
-          const cleanedDate = dateStr.replace(/(\d+)(st|nd|rd|th)/, '$1');
-          const withoutWeekday = cleanedDate.replace(/^\w+,\s*/, ''); // remove weekday
-          const finalDateStr = `${withoutWeekday} 2025`;
-          const parsedDate = moment(finalDateStr, 'MMMM D [at] h A YYYY').toDate();
-          return parsedDate;
-      })()
+      appointmentDateTime: appointmentDateObj
   });
+
+  // Doctor availability check
+  const doctor = await Doctor.findOne({ name: session.data.doctorName });
+  if (!doctor) {
+    console.log(`Doctor ${session.data.doctorName} not found.`);
+    await CallSession.deleteOne({ contactNumber: from });
+    return { nextPrompt: '', done: false, goodbye: `Sorry, Dr. ${session.data.doctorName} is not available. Please call again later.` };
+  }
+
+  const appointmentDay = moment(appointmentDateObj).format('dddd');
+  const appointmentTime = moment(appointmentDateObj).format('HH:mm');
+
+  const isAvailable = doctor.availability.some(slot => {
+    return slot.dayOfWeek === appointmentDay &&
+           appointmentTime >= slot.startTime &&
+           appointmentTime <= slot.endTime;
+  });
+
+  if (!isAvailable) {
+    console.log(`Dr. ${session.data.doctorName} is not available at ${appointmentDay} ${appointmentTime}.`);
+    await CallSession.deleteOne({ contactNumber: from });
+    return { nextPrompt: '', done: false, goodbye: `Sorry, Dr. ${session.data.doctorName} is not available at that time. Please call again later.` };
+  }
   await patient.save();
   await CallSession.deleteOne({ contactNumber: from });
   return { nextPrompt: '', done: true, goodbye: 'Thank you. Your appointment is booked. Goodbye.' };
@@ -65,67 +91,5 @@ if (!missingField) {
   return { nextPrompt: questions[fieldNames.indexOf(missingField)], done: false };
 }
 
-  if (!session.data.contactNumber && from) {
-    session.data.contactNumber = from; // use caller's phone number if extraction failed
-  }
-  console.log("Full session data before saving:", session.data);
 
-  await session.save();
-  if (session.step >= questions.length) {
-    // Save to DB
-    let patient = await Patient.findOne({ contactNumber: session.data.contactNumber });
-    if (!patient) {
-      patient = new Patient({
-        name: session.data.name,
-        contactNumber: session.data.contactNumber,
-        appointments: []
-      });
-    }
-    patient.appointments.push({
-      doctorName: session.data.doctorName,
-      appointmentDateTime: (() => {
-        console.log('Original appointmentDateTime string:', session.data.appointmentDateTime);
-        const dateStr = session.data.appointmentDateTime;
-        if (!dateStr) return null;
-    
-        // Remove 'st', 'nd', 'rd', 'th'
-        const cleanedDateStr = dateStr.replace(/(\d+)(st|nd|rd|th)/g, '$1');
-        console.log('Cleaned appointmentDateTime string:', cleanedDateStr);
-    
-        // Remove weekday (Monday, Tuesday, etc.)
-        const withoutWeekday = cleanedDateStr.replace(/^\w+,\s*/, '');
-        console.log('Without weekday string:', withoutWeekday);
-    
-        // Append year to the date string
-        const currentYear = new Date().getFullYear();
-        const fullDateStr = `${withoutWeekday} ${currentYear}`;
-        console.log('Final date string to parse:', fullDateStr);
-    
-        // Parse the cleaned string
-        const parsedDate = moment(fullDateStr, 'MMMM D [at] h A YYYY', true).toDate();
-        console.log('Parsed date object:', parsedDate);
-    
-        // Return parsed date if valid, else null
-        return isNaN(parsedDate.getTime()) ? null : parsedDate;
-    })()
-    
-    
-
-    });
-    try {
-      console.log('Attempting to save patient:', patient);
-      await patient.save();
-      console.log('Patient saved successfully.');
-      await CallSession.deleteOne({ contactNumber: from });
-      console.log('CallSession deleted successfully.');
-    } catch (error) {
-      console.error('Error saving patient or deleting CallSession:', error);
-    }
-    return { nextPrompt: '', done: true, goodbye: 'Thank you. Your appointment is booked. Goodbye.' };
-  }
-  if (session.retries > 1) {
-    await CallSession.deleteOne({ contactNumber: from });
-    return { nextPrompt: '', done: false, goodbye: 'Sorry, I could not understand. Please call again later. Goodbye.' };
-  }
-  return { nextPrompt: questions[session.step], done: false };
 };
