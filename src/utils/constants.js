@@ -1,9 +1,10 @@
 exports.QUESTIONS = [
-  'What is your name?',
-  'Which doctor would you like to see?',
-  'What date and time do you want for your appointment?',
-  'What is your contact number?'
+  'Hello! Welcome to Fourtix Medical Capital. I’m your virtual assistant here to help you book an appointment. May I know your name, please?',
+  'Great! Which doctor would you like to see?',
+  'When would you like to schedule your appointment? Please mention the date and time.',
+  'And finally, what’s the best contact number to reach you?'
 ];
+
 
 exports.FIELD_NAMES = [
   'name',

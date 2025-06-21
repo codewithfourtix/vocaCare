@@ -29,7 +29,7 @@ exports.generateVoiceResponse = async (
       },
     });
 
-    const outputPath = path.join(__dirname, "../uploads", filename);
+    const outputPath = path.join(__dirname, "../../uploads", filename);
     const writer = fs.createWriteStream(outputPath);
 
     response.data.pipe(writer);
